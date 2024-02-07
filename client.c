@@ -37,7 +37,6 @@ int main(int argc, char *argv[])
 	char rbuf[100];
 	int rdy;
 	while (1) {
-		printf("in\n");
 		if((rdy = poll(pfds,2,-1)) != 0){
 			printf("%d\n", rdy);
 			if(rdy == -1){
@@ -46,16 +45,20 @@ int main(int argc, char *argv[])
 			}
 
 			for(int i=0;i<2;i++){
-				int bc = read(pfds[i].fd,&rbuf, sizeof(rbuf));
-				if(bc==-1){
-					perror("read failed");
-					exit(1);
-				}else if(bc > 0){
-					printf("%s\n",rbuf);
-					write(sock, &rbuf,sizeof(rbuf));
+				if (rdy>0) {
+					int bc = read(pfds[i].fd,&rbuf, sizeof(rbuf));
+					if(bc==-1){
+						perror("read failed");
+						exit(1);
+					}else if(bc > 0){
+						printf("%s\n",rbuf);
+						write(sock, &rbuf,sizeof(rbuf));
+						rdy--;
+					}
+    				}else{
+					break;
 				}
 			}
-			printf("out\n");
 		} 
 	}
 	return 0;
