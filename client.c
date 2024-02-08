@@ -45,18 +45,17 @@ int main(int argc, char *argv[])
 			}
 
 			for(int i=0;i<2;i++){
-				if (rdy>0) {
-					int bc = read(pfds[i].fd,&rbuf, sizeof(rbuf));
-					if(bc==-1){
-						perror("read failed");
-						exit(1);
-					}else if(bc > 0){
-						printf("%s\n",rbuf);
-						write(sock, &rbuf,sizeof(rbuf));
-						rdy--;
-					}
-    				}else{
+				if (rdy==0) {
 					break;
+				}
+				int bc = read(pfds[i].fd,&rbuf, sizeof(rbuf));
+				if(bc==-1){
+					perror("read failed");
+					exit(1);
+				}else if(bc > 0){
+					printf("%s\n",rbuf);
+					write(sock, &rbuf,sizeof(rbuf));
+					rdy--;
 				}
 			}
 		} 
