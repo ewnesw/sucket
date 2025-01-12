@@ -7,6 +7,12 @@
 #include <unistd.h>
 #include <signal.h>
 #include <poll.h>
+#include <arpa/inet.h>
+
+
+#define PORT 4070
+#define IPV4_ADDR "127.0.0.1"
+
 
 int init_sock(){
 
@@ -33,63 +39,67 @@ void setup_sock(int sock, struct sockaddr_in * addr,int addr_len){
 }
 
 
-
 int main(int argc, char *argv[])
 {
  	int sock_fd = init_sock();
 	
 	struct sockaddr_in addr = {
 		AF_INET,
-		0x05,
-		0
+		htons(PORT)
 	};
+
+	inet_pton(AF_INET, IPV4_ADDR, &addr.sin_addr);
+
 	int addr_len = sizeof(addr);
 	setup_sock(sock_fd, &addr, addr_len);
 
-	int size = 1;
+	int size = 3;
 	struct pollfd *pfds;
 	pfds = (struct pollfd *)calloc(size,sizeof(struct pollfd));
 	pfds[0].fd = sock_fd;
 	pfds[0].events = POLLIN;
 	char rbuf[100];
 	int rdy;
-	//int index, last_index = 2;
+	int index = 1;
 	while (1) {
 		if((rdy = poll(pfds,size,-1)) != 0){
-			printf("nb event : %d\n", rdy);
-			//printf("index : %d, last_index : %d\n", index, last_index);
 			if(rdy == -1){
 				perror("shit man\n");
 				exit(1);
 			}
 			
 			if(pfds[0].revents == POLLIN){
-				size++;
-				pfds = (struct pollfd *)reallocarray(pfds,size, sizeof(struct pollfd));
-				if((pfds[size-1].fd = accept(sock_fd,(struct sockaddr *) &addr,(unsigned int *) &addr_len)) == -1) {
-    					perror("Error linked list\n");
+				if((pfds[index].fd = accept(sock_fd,(struct sockaddr *) &addr,(unsigned int *) &addr_len)) == -1) {
+    					perror("Error accept\n");
 					exit(1);
 				}
-				pfds[size-1].events = POLLIN;
+				pfds[index].events = POLLIN;
 				printf("new connection\n");
+				index++;
 				rdy--;
-			}
-			
-			printf("%d\n",rdy);
+			}			
 			if(rdy>0){
 				for(int i=1;i<size;i++){
-					printf("wassup\n");
-					int bc = read(pfds[i].fd,&rbuf, sizeof(rbuf));
-					if(bc == -2){
-						perror("read failed");
-						exit(1);
-					}else if (bc > 0){
-						printf("%s",rbuf);
-						rdy--;
+					if(pfds[i].revents == POLLIN){
+						int bc = read(pfds[i].fd,&rbuf, sizeof(rbuf));
+						if(bc == -1){
+							perror("read failed");
+							exit(1);
+						}else if (bc > 0){
+							printf("%s%d\n",rbuf,bc);
+							for (int j=1;j<size;j++) {
+      								if(j!=i){
+									printf("%ld\n",write(pfds[j].fd,&rbuf,sizeof(rbuf)));
+								}
+      							}
+							rdy--;
+						} else if  (bc == 0){
+							printf("connection closed\n");
+							rdy--;
+						}
 					}
 				}
 			}
-			printf("out\n");
 		} 
 
  	}

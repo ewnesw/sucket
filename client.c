@@ -22,8 +22,8 @@ int main(int argc, char *argv[])
 		0x05,
 		0
 	};
-
-	if(connect(sock,  (struct sockaddr *) &addr, sizeof(addr)) == -1){
+	int ret = connect(sock,  (struct sockaddr *) &addr, sizeof(addr));
+	if( ret == -1){
 		perror("ah fuck\n");
 		exit(1);
 	}
@@ -38,24 +38,29 @@ int main(int argc, char *argv[])
 	int rdy;
 	while (1) {
 		if((rdy = poll(pfds,2,-1)) != 0){
-			printf("%d\n", rdy);
 			if(rdy == -1){
 				perror("shit man\n");
 				exit(1);
 			}
 
+			if (rdy==0) {
+				break;
+			}
+			
 			for(int i=0;i<2;i++){
-				if (rdy==0) {
-					break;
-				}
-				int bc = read(pfds[i].fd,&rbuf, sizeof(rbuf));
-				if(bc==-1){
-					perror("read failed");
-					exit(1);
-				}else if(bc > 0){
-					printf("%s\n",rbuf);
-					write(sock, &rbuf,sizeof(rbuf));
-					rdy--;
+				if (pfds[i].revents==POLLIN){
+					int bc = read(pfds[i].fd,&rbuf, sizeof(rbuf));
+					if(bc==-1){
+						perror("read failed");
+						exit(1);
+					}else if(bc > 0){
+						printf("%s%d\n",rbuf,bc);
+						if(i==0){
+							printf("%ld\n", write(sock, &rbuf,sizeof(rbuf)));
+						}
+						rdy--;
+				
+					}
 				}
 			}
 		} 
