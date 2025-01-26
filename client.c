@@ -7,10 +7,10 @@
 #include <unistd.h>
 #include <signal.h>
 #include <poll.h>
+#include <arpa/inet.h>
 
+int client_sock(int port, char* ipv4_addr){
 
-int main(int argc, char *argv[])
-{
 	int sock = socket(AF_INET,SOCK_STREAM,0);
 	if(sock == -1){
 		perror("error lol");
@@ -19,9 +19,11 @@ int main(int argc, char *argv[])
 
  	struct sockaddr_in addr = {
 		AF_INET,
-		0x05,
-		0
+		htons(port)
 	};
+
+	inet_pton(AF_INET, ipv4_addr, &addr.sin_addr);
+
 	int ret = connect(sock,  (struct sockaddr *) &addr, sizeof(addr));
 	if( ret == -1){
 		perror("ah fuck\n");
@@ -29,13 +31,23 @@ int main(int argc, char *argv[])
 	}
      	printf("connected\n");
 
+	return sock;
+}
+
+struct pollfd* client_poll(int sock){
 	struct pollfd *pfds;
 	pfds = (struct pollfd *)malloc(2 * sizeof(struct pollfd)); 
 	pfds[0].fd = 0;
 	pfds[1].fd = sock;
 	pfds[0].events = pfds[1].events = POLLIN; 
-	char rbuf[100];
+
+	return pfds;
+}
+
+void client_run(struct pollfd * pfds, int csock, int buf_size){
+	char rbuf[buf_size];
 	int rdy;
+
 	while (1) {
 		if((rdy = poll(pfds,2,-1)) != 0){
 			if(rdy == -1){
@@ -54,9 +66,9 @@ int main(int argc, char *argv[])
 						perror("read failed");
 						exit(1);
 					}else if(bc > 0){
-						printf("%s%d\n",rbuf,bc);
+						printf("%s%d",rbuf,bc);
 						if(i==0){
-							printf("%ld\n", write(sock, &rbuf,sizeof(rbuf)));
+							printf("%ld\n", write(csock, &rbuf,sizeof(rbuf)));
 						}
 						rdy--;
 				
@@ -65,5 +77,13 @@ int main(int argc, char *argv[])
 			}
 		} 
 	}
-	return 0;
+}
+
+
+void suck_client(int port, char* ipv4_addr, int buf_size){
+	int csock = client_sock(port,ipv4_addr);
+	struct pollfd *pfds = client_poll(csock);
+	
+	client_run(pfds,csock,buf_size);
+	close(csock);
 }
